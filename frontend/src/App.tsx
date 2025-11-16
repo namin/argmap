@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ArgumentGraph from './components/ArgumentGraph';
 import NodeDetails from './components/NodeDetails';
 import type { ArgumentMap, Node, Edge, ExtractResponse } from './types';
@@ -12,6 +12,59 @@ function App() {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [activeTab, setActiveTab] = useState<'graph' | 'json' | 'summary'>('graph');
+  const [savedHash, setSavedHash] = useState<string | null>(null);
+  const [shouldAutoAnalyze, setShouldAutoAnalyze] = useState(false);
+
+  // Load saved query from URL parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const savedHashParam = urlParams.get('saved');
+
+    if (savedHashParam) {
+      // Try to load cached results first
+      fetch(`http://localhost:8000/api/results/${savedHashParam}`)
+        .then((res) => {
+          if (res.ok) return res.json();
+          throw new Error('No cached results');
+        })
+        .then((data) => {
+          if (data.success && data.result) {
+            setResult(data.result);
+            setSavedHash(data.saved_hash);
+            // Also load the query parameters
+            return fetch(`http://localhost:8000/api/saved/${savedHashParam}`);
+          }
+          throw new Error('Invalid cached data');
+        })
+        .then((res) => res.json())
+        .then((queryData) => {
+          setText(queryData.text || '');
+        })
+        .catch(() => {
+          // Fall back to loading query and re-analyzing
+          fetch(`http://localhost:8000/api/saved/${savedHashParam}`)
+            .then((res) => res.json())
+            .then((data) => {
+              setText(data.text || '');
+              if (data.text?.trim()) {
+                setShouldAutoAnalyze(true);
+              }
+            })
+            .catch((err) => {
+              console.error('Failed to load saved query:', err);
+              setError(`Failed to load saved query: ${err.message}`);
+            });
+        });
+    }
+  }, []);
+
+  // Auto-analyze when flag is set
+  useEffect(() => {
+    if (shouldAutoAnalyze && text.trim()) {
+      setShouldAutoAnalyze(false);
+      handleExtract();
+    }
+  }, [shouldAutoAnalyze, text]);
 
   const handleExtract = async () => {
     if (!text.trim()) {
@@ -24,6 +77,7 @@ function App() {
     setResult(null);
     setSelectedNode(null);
     setSelectedEdge(null);
+    setSavedHash(null);
 
     try {
       const response = await fetch('http://localhost:8000/api/extract', {
@@ -41,6 +95,12 @@ function App() {
         setError(data.error || 'Unknown error occurred');
       } else if (data.result) {
         setResult(data.result);
+        if (data.saved_hash) {
+          setSavedHash(data.saved_hash);
+          // Update URL without reloading
+          const newUrl = `${window.location.pathname}?saved=${data.saved_hash}`;
+          window.history.pushState({}, '', newUrl);
+        }
       }
     } catch (err) {
       setError(`Network error: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -74,6 +134,12 @@ function App() {
             <p className="text-sm text-gray-600">Open-ended argument mapping with LLM-chosen ontologies</p>
           </div>
           <div className="flex items-center gap-4">
+            <a
+              href="/saved"
+              className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              📚 Saved Queries
+            </a>
             <div className="w-80">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 API Key (optional)
@@ -129,6 +195,18 @@ function App() {
           {error && (
             <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
               {error}
+            </div>
+          )}
+
+          {savedHash && (
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-md text-green-700 text-sm">
+              Saved! Shareable link:{' '}
+              <a
+                href={`/?saved=${savedHash}`}
+                className="font-mono underline hover:text-green-900"
+              >
+                /?saved={savedHash}
+              </a>
             </div>
           )}
         </div>

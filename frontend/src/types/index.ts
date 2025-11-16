@@ -31,4 +31,5 @@ export interface ExtractResponse {
   success: boolean;
   result?: ArgumentMap;
   error?: string;
+  saved_hash?: string;
 }
