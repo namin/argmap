@@ -1,6 +1,6 @@
 # ArgMap
 
-Open-ended argument mapping with LLM-chosen ontologies.
+_open-ended argument mapping_
 
 ## Features
 
