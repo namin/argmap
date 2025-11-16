@@ -131,7 +131,7 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">ArgMap</h1>
-            <p className="text-sm text-gray-600">Open-ended argument mapping with LLM-chosen ontologies</p>
+            <p className="text-sm text-gray-600">Open-ended argument mapping</p>
           </div>
           <div className="flex items-center gap-4">
             <a
