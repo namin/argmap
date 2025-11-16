@@ -83,7 +83,7 @@ def init_llm_client(
         return None
 
     if required:
-        raise LLMNotConfigured("Set GEMINI_API_KEY or GOOGLE_CLOUD_PROJECT.")
+        raise LLMNotConfigured("Set GEMINI_API_KEY.")
     return None
 
 
