@@ -68,9 +68,37 @@ function App() {
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">ArgMap</h1>
-          <p className="text-sm text-gray-600">Open-ended argument mapping with LLM-chosen ontologies</p>
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">ArgMap</h1>
+            <p className="text-sm text-gray-600">Open-ended argument mapping with LLM-chosen ontologies</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="w-80">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                API Key (optional)
+              </label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                placeholder="GEMINI_API_KEY or leave empty"
+              />
+            </div>
+            <a
+              href="https://github.com/namin/argmap"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:opacity-70 transition-opacity"
+            >
+              <img
+                src="/github-mark.png"
+                alt="GitHub"
+                className="w-8 h-8"
+              />
+            </a>
+          </div>
         </div>
       </header>
 
@@ -87,19 +115,6 @@ function App() {
               rows={8}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
               placeholder="Enter philosophical text or any argumentative content..."
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              API Key (optional)
-            </label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-              placeholder="Leave empty to use server's GEMINI_API_KEY or GOOGLE_CLOUD_PROJECT"
             />
           </div>
 
