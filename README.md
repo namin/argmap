@@ -38,7 +38,7 @@ Server runs at http://localhost:8000
 ```bash
 cd frontend
 npm install
-npm run dev
+VITE_API_URL=http://localhost:8000 npm run dev
 ```
 
 Frontend runs at http://localhost:5173
