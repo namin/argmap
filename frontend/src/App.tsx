@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import ArgumentGraph from './components/ArgumentGraph';
 import NodeDetails from './components/NodeDetails';
 import type { ArgumentMap, Node, Edge, ExtractResponse } from './types';
+import { API_BASE_URL } from './config';
 
 function App() {
   const [text, setText] = useState('');
@@ -22,7 +23,7 @@ function App() {
 
     if (savedHashParam) {
       // Try to load cached results first
-      fetch(`http://localhost:8000/api/results/${savedHashParam}`)
+      fetch(`${API_BASE_URL}/api/results/${savedHashParam}`)
         .then((res) => {
           if (res.ok) return res.json();
           throw new Error('No cached results');
@@ -32,7 +33,7 @@ function App() {
             setResult(data.result);
             setSavedHash(data.saved_hash);
             // Also load the query parameters
-            return fetch(`http://localhost:8000/api/saved/${savedHashParam}`);
+            return fetch(`${API_BASE_URL}/api/saved/${savedHashParam}`);
           }
           throw new Error('Invalid cached data');
         })
@@ -42,7 +43,7 @@ function App() {
         })
         .catch(() => {
           // Fall back to loading query and re-analyzing
-          fetch(`http://localhost:8000/api/saved/${savedHashParam}`)
+          fetch(`${API_BASE_URL}/api/saved/${savedHashParam}`)
             .then((res) => res.json())
             .then((data) => {
               setText(data.text || '');
@@ -80,7 +81,7 @@ function App() {
     setSavedHash(null);
 
     try {
-      const response = await fetch('http://localhost:8000/api/extract', {
+      const response = await fetch(`${API_BASE_URL}/api/extract`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

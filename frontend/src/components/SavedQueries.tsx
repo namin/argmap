@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../config';
 
 interface SavedQuery {
   hash: string;
@@ -14,7 +15,7 @@ export default function SavedQueries() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/saved')
+    fetch(`${API_BASE_URL}/api/saved`)
       .then((res) => res.json())
       .then((data) => {
         setQueries(data);
