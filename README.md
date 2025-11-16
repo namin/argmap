@@ -17,10 +17,11 @@ _open-ended argument mapping_
 # Install dependencies
 pip install -r requirements.txt
 
-# Set your API key (one of these options)
+# Set your API key
 export GEMINI_API_KEY="your-key"
 # OR
 export GOOGLE_CLOUD_PROJECT="your-project"
+# OR leave it to the frontend
 
 # Run the server
 python server.py
