@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
+import dagre from 'dagre';
 import type { ArgumentMap, Node, Edge } from '../types';
 
 interface Props {
@@ -27,87 +28,54 @@ export default function ArgumentGraph({ data, onNodeClick, onEdgeClick }: Props)
   const width = 900;
   const height = 600;
 
-  // Compute initial layout using force-directed algorithm
+  // Compute initial layout using dagre hierarchical algorithm
   const initialPositions = useMemo(() => {
-    const nodes = data.nodes;
-    const edges = data.edges || [];
     const pos: Record<string, { x: number; y: number }> = {};
-    const forces: Record<string, { x: number; y: number }> = {};
 
-    // Initialize in circle
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const radius = Math.min(width, height) * 0.35;
+    // Create a new directed graph
+    const g = new dagre.graphlib.Graph();
+    g.setGraph({
+      rankdir: 'TB', // Top to bottom layout
+      nodesep: 80,   // Horizontal separation between nodes
+      ranksep: 100,  // Vertical separation between ranks
+      marginx: 60,
+      marginy: 60,
+    });
+    g.setDefaultEdgeLabel(() => ({}));
 
-    nodes.forEach((node, i) => {
-      const angle = (i / nodes.length) * 2 * Math.PI - Math.PI / 2;
-      pos[node.id] = {
-        x: centerX + radius * Math.cos(angle),
-        y: centerY + radius * Math.sin(angle),
-      };
-      forces[node.id] = { x: 0, y: 0 };
+    // Add nodes to the graph
+    data.nodes.forEach((node) => {
+      g.setNode(node.id, { width: 90, height: 90 });
     });
 
-    // Run force simulation
-    for (let iter = 0; iter < 100; iter++) {
-      // Reset forces
-      nodes.forEach((node) => {
-        forces[node.id] = { x: 0, y: 0 };
-      });
+    // Add edges to the graph
+    data.edges.forEach((edge) => {
+      g.setEdge(edge.source, edge.target);
+    });
 
-      // Repulsion between all nodes
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const n1 = nodes[i];
-          const n2 = nodes[j];
-          const dx = pos[n2.id].x - pos[n1.id].x;
-          const dy = pos[n2.id].y - pos[n1.id].y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const force = 8000 / (dist * dist);
-          const fx = (dx / dist) * force;
-          const fy = (dy / dist) * force;
-          forces[n1.id].x -= fx;
-          forces[n1.id].y -= fy;
-          forces[n2.id].x += fx;
-          forces[n2.id].y += fy;
-        }
-      }
+    // Run the layout algorithm
+    dagre.layout(g);
 
-      // Attraction along edges
-      edges.forEach((edge) => {
-        const p1 = pos[edge.source];
-        const p2 = pos[edge.target];
-        if (!p1 || !p2) return;
-        const dx = p2.x - p1.x;
-        const dy = p2.y - p1.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const force = dist * 0.05;
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
-        forces[edge.source].x += fx;
-        forces[edge.source].y += fy;
-        forces[edge.target].x -= fx;
-        forces[edge.target].y -= fy;
-      });
+    // Extract positions and scale to fit the canvas
+    const graphWidth = g.graph().width || width;
+    const graphHeight = g.graph().height || height;
 
-      // Center gravity
-      nodes.forEach((node) => {
-        const dx = centerX - pos[node.id].x;
-        const dy = centerY - pos[node.id].y;
-        forces[node.id].x += dx * 0.01;
-        forces[node.id].y += dy * 0.01;
-      });
+    // Calculate scale to fit within canvas with padding
+    const scaleX = (width - 120) / graphWidth;
+    const scaleY = (height - 120) / graphHeight;
+    const scale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down if needed
 
-      // Apply forces with damping
-      const damping = 0.85;
-      nodes.forEach((node) => {
-        pos[node.id].x += forces[node.id].x * 0.1 * damping;
-        pos[node.id].y += forces[node.id].y * 0.1 * damping;
-        // Keep within bounds
-        pos[node.id].x = Math.max(60, Math.min(width - 60, pos[node.id].x));
-        pos[node.id].y = Math.max(60, Math.min(height - 60, pos[node.id].y));
-      });
-    }
+    // Center the graph
+    const offsetX = (width - graphWidth * scale) / 2;
+    const offsetY = (height - graphHeight * scale) / 2;
+
+    g.nodes().forEach((nodeId) => {
+      const nodeData = g.node(nodeId);
+      pos[nodeId] = {
+        x: nodeData.x * scale + offsetX,
+        y: nodeData.y * scale + offsetY,
+      };
+    });
 
     return pos;
   }, [data.nodes, data.edges, width, height]);
