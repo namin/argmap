@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
-import dagre from 'dagre';
+import * as dagre from 'dagre';
 import type { ArgumentMap, Node, Edge } from '../types';
 
 interface Props {
@@ -69,7 +69,7 @@ export default function ArgumentGraph({ data, onNodeClick, onEdgeClick }: Props)
     const offsetX = (width - graphWidth * scale) / 2;
     const offsetY = (height - graphHeight * scale) / 2;
 
-    g.nodes().forEach((nodeId) => {
+    g.nodes().forEach((nodeId: string) => {
       const nodeData = g.node(nodeId);
       pos[nodeId] = {
         x: nodeData.x * scale + offsetX,
