@@ -8,14 +8,23 @@ interface Props {
   onEdgeClick?: (edge: Edge) => void;
 }
 
-// Generate distinct colors for different types
-function stringToColor(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const h = hash % 360;
-  return `hsl(${h}, 65%, 55%)`;
+// Generate maximally distinct colors for different types
+function createColorMap(types: string[]): Record<string, string> {
+  const colorMap: Record<string, string> = {};
+
+  // Use golden angle for maximum color separation
+  const goldenAngle = 137.508;
+
+  types.forEach((type, i) => {
+    // Distribute hues using golden angle for maximum separation
+    const hue = (i * goldenAngle) % 360;
+    // Vary saturation and lightness slightly for additional distinction
+    const saturation = 65 + (i % 3) * 10; // 65%, 75%, 85%
+    const lightness = 45 + (i % 2) * 15;  // 45%, 60%
+    colorMap[type] = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  });
+
+  return colorMap;
 }
 
 export default function ArgumentGraph({ data, onNodeClick, onEdgeClick }: Props) {
@@ -119,6 +128,10 @@ export default function ArgumentGraph({ data, onNodeClick, onEdgeClick }: Props)
     return Array.from(types);
   }, [data.edges]);
 
+  // Create color maps for maximally distinct colors
+  const nodeColorMap = useMemo(() => createColorMap(nodeTypes), [nodeTypes]);
+  const edgeColorMap = useMemo(() => createColorMap(edgeTypes), [edgeTypes]);
+
   if (Object.keys(positions).length === 0) {
     return <div className="text-gray-500">Loading graph...</div>;
   }
@@ -132,7 +145,7 @@ export default function ArgumentGraph({ data, onNodeClick, onEdgeClick }: Props)
           <div key={type} className="flex items-center gap-2 mb-1">
             <div
               className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: stringToColor(type) }}
+              style={{ backgroundColor: nodeColorMap[type] }}
             />
             <span>{type}</span>
           </div>
@@ -140,7 +153,7 @@ export default function ArgumentGraph({ data, onNodeClick, onEdgeClick }: Props)
         <div className="font-semibold mt-3 mb-2">Edge Types</div>
         {edgeTypes.map((type) => (
           <div key={type} className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-0.5" style={{ backgroundColor: stringToColor(type) }} />
+            <div className="w-8 h-0.5" style={{ backgroundColor: edgeColorMap[type] }} />
             <span>{type}</span>
           </div>
         ))}
@@ -169,7 +182,7 @@ export default function ArgumentGraph({ data, onNodeClick, onEdgeClick }: Props)
               markerHeight="6"
               orient="auto-start-reverse"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={stringToColor(edge.type)} />
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={edgeColorMap[edge.type]} />
             </marker>
           ))}
         </defs>
@@ -185,7 +198,7 @@ export default function ArgumentGraph({ data, onNodeClick, onEdgeClick }: Props)
                 cx={pos.x}
                 cy={pos.y}
                 r={40}
-                fill={stringToColor(node.type)}
+                fill={nodeColorMap[node.type]}
                 stroke={hoveredNode === node.id ? '#1f2937' : '#ffffff'}
                 strokeWidth={hoveredNode === node.id ? 3 : 2}
                 className="cursor-grab active:cursor-grabbing transition-all"
@@ -230,7 +243,7 @@ export default function ArgumentGraph({ data, onNodeClick, onEdgeClick }: Props)
                 y1={startY}
                 x2={endX}
                 y2={endY}
-                stroke={stringToColor(edge.type)}
+                stroke={edgeColorMap[edge.type]}
                 strokeWidth={hoveredEdge === i ? 4 : 2}
                 markerEnd={`url(#arrow-${i})`}
                 className="cursor-pointer transition-all"
