@@ -206,6 +206,39 @@ export default function ArgumentGraph({ data, onNodeClick, onEdgeClick }: Props)
           ))}
         </defs>
 
+        {/* Nodes */}
+        {data.nodes.map((node) => {
+          const pos = positions[node.id];
+          if (!pos) return null;
+
+          return (
+            <g key={node.id}>
+              <circle
+                cx={pos.x}
+                cy={pos.y}
+                r={40}
+                fill={stringToColor(node.type)}
+                stroke={hoveredNode === node.id ? '#1f2937' : '#ffffff'}
+                strokeWidth={hoveredNode === node.id ? 3 : 2}
+                className="cursor-grab active:cursor-grabbing transition-all"
+                onMouseDown={(e) => handleMouseDown(node.id, e)}
+                onMouseEnter={() => setHoveredNode(node.id)}
+                onMouseLeave={() => setHoveredNode(null)}
+                onClick={() => !dragging && onNodeClick?.(node)}
+              />
+              <text
+                x={pos.x}
+                y={pos.y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="text-sm font-semibold fill-white pointer-events-none"
+              >
+                {node.id}
+              </text>
+            </g>
+          );
+        })}
+
         {/* Edges */}
         {data.edges.map((edge, i) => {
           const p1 = positions[edge.source];
@@ -245,39 +278,6 @@ export default function ArgumentGraph({ data, onNodeClick, onEdgeClick }: Props)
                 className="text-xs fill-gray-600 pointer-events-none"
               >
                 {edge.type}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* Nodes */}
-        {data.nodes.map((node) => {
-          const pos = positions[node.id];
-          if (!pos) return null;
-
-          return (
-            <g key={node.id}>
-              <circle
-                cx={pos.x}
-                cy={pos.y}
-                r={40}
-                fill={stringToColor(node.type)}
-                stroke={hoveredNode === node.id ? '#1f2937' : '#ffffff'}
-                strokeWidth={hoveredNode === node.id ? 3 : 2}
-                className="cursor-grab active:cursor-grabbing transition-all"
-                onMouseDown={(e) => handleMouseDown(node.id, e)}
-                onMouseEnter={() => setHoveredNode(node.id)}
-                onMouseLeave={() => setHoveredNode(null)}
-                onClick={() => !dragging && onNodeClick?.(node)}
-              />
-              <text
-                x={pos.x}
-                y={pos.y}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                className="text-sm font-semibold fill-white pointer-events-none"
-              >
-                {node.id}
               </text>
             </g>
           );
