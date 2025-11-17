@@ -7,9 +7,10 @@ from typing import Optional, List, Dict, Any
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from argmap.extract import extract_argument_map
+from argmap.extract import extract_argument_map, extract_argument_map_stream
 from argmap.llm import set_request_api_key, LLMConfigurationError, LLMNotConfigured
 
 
@@ -198,6 +199,107 @@ def get_saved_results(query_hash: str) -> Dict[str, Any]:
 
     with open(file_path) as f:
         return json.load(f)
+
+
+@app.post("/api/extract/stream")
+async def extract_argument_stream(
+    req: ExtractRequest,
+    x_api_key: Optional[str] = Header(None)
+):
+    """
+    Extract argument map from text with streaming response.
+
+    Streams JSON chunks as they're generated, then sends the final parsed result.
+    This keeps the connection alive during LLM processing to avoid timeouts.
+    """
+    api_key = x_api_key or req.api_key
+    if api_key:
+        set_request_api_key(api_key)
+
+    def generate():
+        try:
+            # Stream the JSON generation
+            full_json = ""
+            gen = extract_argument_map_stream(
+                req.text,
+                api_key=api_key,
+                temperature=req.temperature,
+                model=req.model
+            )
+
+            # Yield chunks as they come
+            for chunk in gen:
+                full_json += chunk
+                # Send chunk wrapped in SSE format
+                yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
+
+            # Parse the complete response
+            data = json.loads(full_json)
+
+            # Save query and results
+            saved_hash = save_query(req)
+
+            # Build the response
+            from argmap.schema import Node, Edge, TextSpan, ArgumentMap
+            nodes = []
+            for node_data in data.get("nodes", []):
+                span = None
+                if node_data.get("span"):
+                    span = TextSpan(**node_data["span"])
+                nodes.append(Node(
+                    id=node_data["id"],
+                    content=node_data["content"],
+                    type=node_data["type"],
+                    rhetorical_force=node_data.get("rhetorical_force"),
+                    span=span
+                ))
+
+            edges = []
+            for edge_data in data.get("edges", []):
+                edges.append(Edge(
+                    source=edge_data["source"],
+                    target=edge_data["target"],
+                    type=edge_data["type"],
+                    explanation=edge_data.get("explanation")
+                ))
+
+            argument_map = ArgumentMap(
+                source_text=req.text,
+                nodes=nodes,
+                edges=edges,
+                summary=data.get("summary"),
+                key_tensions=data.get("key_tensions")
+            )
+
+            response = ExtractResponse(
+                success=True,
+                result=argument_map.model_dump(),
+                saved_hash=saved_hash
+            )
+
+            # Cache full results
+            save_results(saved_hash, response.model_dump())
+
+            # Send final result
+            yield f"data: {json.dumps({'type': 'result', 'data': response.model_dump()})}\n\n"
+
+        except LLMNotConfigured as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': f'LLM not configured: {str(e)}'})}\n\n"
+        except LLMConfigurationError as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': f'LLM configuration error: {str(e)}'})}\n\n"
+        except ValueError as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': f'Extraction error: {str(e)}'})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': f'Unexpected error: {str(e)}'})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
 
 
 if __name__ == "__main__":

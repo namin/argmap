@@ -136,3 +136,29 @@ def generate_json(
         raise LLMCallError("LLM returned non-string content for JSON response.")
 
     return text
+
+
+def generate_json_stream(
+    prompt: str,
+    *,
+    system: Optional[str] = None,
+    temperature: float = 0.0,
+    model: str = LLM_MODEL
+):
+    """Generate JSON response from LLM with streaming."""
+    client = init_llm_client(required=True)
+    combined = f"{system}\n\n{prompt}" if system else prompt
+    cfg = types.GenerateContentConfig(
+        temperature=temperature,
+        response_mime_type="application/json"
+    )
+
+    # Stream the response
+    for chunk in client.models.generate_content_stream(
+        model=model,
+        contents=combined,
+        config=cfg
+    ):
+        text = getattr(chunk, "text", None) or ""
+        if text:
+            yield text

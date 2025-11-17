@@ -15,6 +15,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<'graph' | 'json' | 'summary'>('graph');
   const [savedHash, setSavedHash] = useState<string | null>(null);
   const [shouldAutoAnalyze, setShouldAutoAnalyze] = useState(false);
+  const [streamingChunks, setStreamingChunks] = useState<string>('');
 
   // Load saved query from URL parameter
   useEffect(() => {
@@ -79,9 +80,10 @@ function App() {
     setSelectedNode(null);
     setSelectedEdge(null);
     setSavedHash(null);
+    setStreamingChunks('');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/extract`, {
+      const response = await fetch(`${API_BASE_URL}/api/extract/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,23 +92,62 @@ function App() {
         body: JSON.stringify({ text, api_key: apiKey || undefined }),
       });
 
-      const data: ExtractResponse = await response.json();
+      if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+      }
 
-      if (!data.success) {
-        setError(data.error || 'Unknown error occurred');
-      } else if (data.result) {
-        setResult(data.result);
-        if (data.saved_hash) {
-          setSavedHash(data.saved_hash);
-          // Update URL without reloading
-          const newUrl = `${window.location.pathname}?saved=${data.saved_hash}`;
-          window.history.pushState({}, '', newUrl);
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete SSE messages
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.slice(6);
+            try {
+              const event = JSON.parse(jsonStr);
+
+              if (event.type === 'chunk') {
+                setStreamingChunks((prev) => prev + event.content);
+              } else if (event.type === 'result') {
+                const data: ExtractResponse = event.data;
+                if (!data.success) {
+                  setError(data.error || 'Unknown error occurred');
+                } else if (data.result) {
+                  setResult(data.result);
+                  if (data.saved_hash) {
+                    setSavedHash(data.saved_hash);
+                    const newUrl = `${window.location.pathname}?saved=${data.saved_hash}`;
+                    window.history.pushState({}, '', newUrl);
+                  }
+                }
+              } else if (event.type === 'error') {
+                setError(event.error);
+              }
+            } catch {
+              // Ignore malformed JSON
+            }
+          }
         }
       }
     } catch (err) {
       setError(`Network error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
+      setStreamingChunks('');
     }
   };
 
@@ -192,6 +233,15 @@ function App() {
           >
             {loading ? 'Extracting...' : 'Extract Argument Map'}
           </button>
+
+          {loading && streamingChunks && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md text-blue-700 text-sm">
+              <div className="font-medium mb-2">Receiving response... ({streamingChunks.length} characters)</div>
+              <div className="text-xs font-mono bg-blue-100 p-2 rounded max-h-32 overflow-y-auto">
+                {streamingChunks.slice(-500)}
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
