@@ -41,6 +41,9 @@ export default function ArgumentGraph({ data, onNodeClick, onEdgeClick }: Props)
   const initialPositions = useMemo(() => {
     const pos: Record<string, { x: number; y: number }> = {};
 
+    // Reserve space for legend (top-left corner)
+    const legendWidth = 160;  // Approximate legend width
+
     // Create a new directed graph
     const g = new dagre.graphlib.Graph();
     g.setGraph({
@@ -65,18 +68,22 @@ export default function ArgumentGraph({ data, onNodeClick, onEdgeClick }: Props)
     // Run the layout algorithm
     dagre.layout(g);
 
-    // Extract positions and scale to fit the canvas
+    // Extract positions and scale to fit the canvas (excluding legend area)
     const graphWidth = g.graph().width || width;
     const graphHeight = g.graph().height || height;
 
-    // Calculate scale to fit within canvas with padding
-    const scaleX = (width - 120) / graphWidth;
-    const scaleY = (height - 120) / graphHeight;
+    // Calculate available space (account for legend on left)
+    const availableWidth = width - legendWidth - 60; // 60 for right padding
+    const availableHeight = height - 120;
+
+    // Calculate scale to fit within available space
+    const scaleX = availableWidth / graphWidth;
+    const scaleY = availableHeight / graphHeight;
     const scale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down if needed
 
-    // Center the graph
-    const offsetX = (width - graphWidth * scale) / 2;
-    const offsetY = (height - graphHeight * scale) / 2;
+    // Offset to place graph to the right of legend
+    const offsetX = legendWidth + (availableWidth - graphWidth * scale) / 2;
+    const offsetY = 60 + (availableHeight - graphHeight * scale) / 2;
 
     g.nodes().forEach((nodeId: string) => {
       const nodeData = g.node(nodeId);
